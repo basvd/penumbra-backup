@@ -1,0 +1,20 @@
+{
+  "name": "TestBackup",
+  "options": {
+    "format": "zip",
+    "date_format": "dd-MM-yyyy",
+    "target": "D:\\Test\\Penumbra\\{name}_{date}"
+  },
+  "flags": {
+    "recursive": true,
+    "incremental": false,
+    "clear_archive_bit": false
+  },
+  "sources": [
+    "C:\\ProgramData"
+  ],
+  "exclude": [
+    "C:\\ProgramData\\Microsoft",
+    "x/ini;.xml/"
+  ]
+}
