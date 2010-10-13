@@ -58,9 +58,17 @@ namespace Penumbra
       bool[] has = {_opt != null && _opt.Length > 0, _args != null && _args.Length > 0};
       string exe = AppDomain.CurrentDomain.FriendlyName;
       string command = exe + " ";
-      if (has[0]) command += "[options] ";
+      if (has[0])
+      {
+        foreach (Arg o in _opt)
+        {
+          string option = "<" + o.Name + ">";
+          //if (!o.Required) option = "[" + option + "]";
+          command += option + " ";
+        }
+      }
       if (has[1]) command += "[arguments]";
-      Console.WriteLine("\t" + command );
+      Console.WriteLine("\n\t" + command );
 
       string s = (String.IsNullOrEmpty(Sep) ? " " : Sep);
       if (has[0]) // Options
@@ -88,7 +96,7 @@ namespace Penumbra
         + "\n\n\t\texample:"
         + "\n\t\t\t" + String.Format(
           "{0}"
-          + (has[0] ? " options \"second option\"" : String.Empty)
+          + (has[0] ? " <options> " : String.Empty)
           + (has[1] ? " {1}foo{2}3 {1}bar{2}\"a space\"" : String.Empty),
           exe, Prefix, s)
       );

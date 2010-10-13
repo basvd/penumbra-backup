@@ -9,18 +9,18 @@ namespace Penumbra
     {
       Arg[] opts =
       {
-        new Arg("action", "which action to perform"),
+        new Arg("action", "which action to perform   (backup|restore)"),
         new Arg("job", "backup job configuration file")
       };
 
       Arg[] args =
       {
         new Arg("help", "show usage information"),
-        new Arg("i", "ask for confirmation"),
-        new Arg("diff", "make differential backup", false, false, "action", "help")
+        new Arg("i", "ask for confirmation")
+        //new Arg("diff", "make differential backup", false, false, "action", "help")
       };
       Arguments parser = new Arguments(
-        "-",
+        "/",
         ":",
         opts, args);
 
@@ -33,7 +33,7 @@ namespace Penumbra
       catch (Exception e)
       {
         Console.WriteLine(e.Message);
-        Console.WriteLine("\nTry `" + AppDomain.CurrentDomain.FriendlyName + " -help` for usage information.");
+        Console.WriteLine("\nTry `" + AppDomain.CurrentDomain.FriendlyName + " /help` for usage information.");
         return;
       }
 
@@ -76,12 +76,12 @@ namespace Penumbra
         {
           Console.WriteLine(e.Message);
         }
-        //Console.WriteLine(cfg.ToJson());
+        //Console.WriteLine(filename.ToJson());
       }
       else
       {
         Console.WriteLine("Invalid usage.");
-        Console.WriteLine("\nTry `" + AppDomain.CurrentDomain.FriendlyName + " -help` for usage information.");
+        Console.WriteLine("\nTry `" + AppDomain.CurrentDomain.FriendlyName + " /help` for usage information.");
         return;
       }
     }
