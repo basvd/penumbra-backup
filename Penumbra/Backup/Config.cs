@@ -9,6 +9,7 @@ using DrWPF.Windows.Data;
 using System.ComponentModel;
 using System.Xml.Serialization;
 using System.Collections.Specialized;
+using System.IO;
 
 namespace Penumbra
 {
@@ -161,6 +162,7 @@ namespace Penumbra
     }
 
     // Replaces template tags in target
+    // TODO: Let BackupEngine decide the filename
     string ParseTarget(string target)
     {
       if (target == null)
@@ -188,6 +190,13 @@ namespace Penumbra
       return JsonConvert.SerializeObject(map, indent ? Formatting.Indented : Formatting.None);
     }
 
+    public void ToFile(string filename)
+    {
+      StreamWriter f = new StreamWriter(filename);
+      f.Write(this.ToJson(true));
+      f.Close();
+    }
+
     #region Property changed
     public event PropertyChangedEventHandler PropertyChanged;
     private void NotifyPropertyChanged(String info)
@@ -200,16 +209,16 @@ namespace Penumbra
     #endregion
 
     // Load job configuration
-    public static List<Config> ReadFile(string cfg)
+    public static List<Config> ReadFile(string filename)
     {
-      if (System.IO.File.Exists(cfg))
+      if (System.IO.File.Exists(filename))
       {
-        Console.WriteLine("Reading `" + cfg + "`...");
+        Console.WriteLine("Reading `" + filename + "`...");
         try
         {
           JObject data = JObject.Parse(
             "{ '_bkps' : " +
-            System.IO.File.ReadAllText(cfg) +
+            System.IO.File.ReadAllText(filename) +
             " }");
           List<Config> cfgs = new List<Config>();
           if (data["_bkps"].Type == JTokenType.Array)
@@ -228,15 +237,25 @@ namespace Penumbra
         catch (Exception e)
         {
           Console.WriteLine(e.Message);
-          Console.WriteLine("An error occured while reading `" + cfg + "`!");
+          Console.WriteLine("An error occured while reading `" + filename + "`!");
           return null;
         }
       }
       else
       {
-        Console.WriteLine("File `" + cfg + "` does not exist!");
+        Console.WriteLine("File `" + filename + "` does not exist!");
         return null;
       }
+    }
+
+    public static void WriteFile(List<Config> cfgs, string filename)
+    {
+      StreamWriter f = new StreamWriter(filename);
+      if (cfgs.Count == 1)
+        f.Write(JsonConvert.SerializeObject(cfgs[0], Formatting.Indented));
+      else
+        f.Write(JsonConvert.SerializeObject(cfgs, Formatting.Indented)); // JSON array?
+      f.Close();
     }
 
     static Dictionary<string, TValue> MergeSettings<TValue>(IDictionary<string, TValue> defaultArgs, IDictionary<string, TValue> args)

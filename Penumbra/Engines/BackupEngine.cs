@@ -37,11 +37,10 @@ namespace Penumbra
       if (!_started) throw new InvalidOperationException("The backup engine is not ready.");
     }
 
-    public virtual bool Post()
+    public virtual void Post()
     {
       if (!_started) throw new InvalidOperationException("The backup engine is not ready.");
       _started = false;
-      return true;
     }
   }
 }

@@ -47,6 +47,21 @@ namespace Penumbra
       }
     }
 
+    public bool CanRead
+    {
+      get
+      {
+        try
+        {
+          return Stream.CanRead;
+        }
+        catch (Exception)
+        {
+          return false;
+        }
+      }
+    }
+
     public BackupEntry(string path, ShadowCopy vss)
     {
       _info = new FileInfo(path);

@@ -88,13 +88,12 @@ namespace Penumbra
       }
     }
 
-    override public bool Post()
+    override public void Post()
     {
       base.Post();
 
       _zip.Close();
       _zip.Dispose();
-      return true;
     }
 
   }

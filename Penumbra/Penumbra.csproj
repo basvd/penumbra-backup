@@ -134,6 +134,7 @@
     <Compile Include="Filters\FullBackupFilter.cs" />
     <Compile Include="Logging\AbstractLog.cs" />
     <Compile Include="Filters\IncrementalBackupFilter.cs" />
+    <Compile Include="Misc\BackupCanceledException.cs" />
     <Compile Include="Misc\ObservableDictionary.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

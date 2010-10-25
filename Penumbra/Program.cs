@@ -54,7 +54,7 @@ namespace Penumbra
             BackupJob job = new BackupJob(cfg);
             if (!pArgs.ContainsKey("i"))
             {
-              job.Run();
+              job.Start();
             }
             else
             {
@@ -65,7 +65,7 @@ namespace Penumbra
                 yesNo = Console.ReadKey().KeyChar.ToString().ToLower();
                 Console.WriteLine();
                 if (yesNo == "y")
-                  job.Run();
+                  job.Start();
                 else if (yesNo == "n")
                   Console.WriteLine("Backup cancelled.");
               }

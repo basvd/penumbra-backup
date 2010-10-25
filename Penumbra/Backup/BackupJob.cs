@@ -1,15 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.ServiceProcess;
-using System.Text.RegularExpressions;
 using Alphaleonis.Win32.Filesystem;
-using ICSharpCode.SharpZipLib.Zip;
-using Newtonsoft.Json.Linq;
+using Penumbra.Misc;
 
 namespace Penumbra
 {
+  
+  public delegate bool DirExcludedCallback(BackupEntry e);
+  public delegate bool FileExcludedCallback(BackupEntry e);
+  public delegate MetadataEntry GetMetadataCallback();
+
   public class BackupJob
   {
     Config _cfg;
@@ -18,17 +20,33 @@ namespace Penumbra
     Stopwatch _timer;
     long _progress;
     long _size;
+    volatile bool _cancel;
 
     // Backup components
     ExclusionFilter _filter;
     BackupEngine _engine;
     List<IBackupExtension> _extensions;
 
-    public Config Config
+    // API callbacks
+
+    DirExcludedCallback _dirx;
+    FileExcludedCallback _filex;
+    GetMetadataCallback _meta;
+
+    Config Config
     {
       get
       {
         return _cfg;
+      }
+    }
+
+    public double Progress
+    {
+      get
+      {
+        if (_size == 0) return 0;
+        return _progress / (double) _size;
       }
     }
 
@@ -38,8 +56,7 @@ namespace Penumbra
 
       _timer = new Stopwatch();
       _cfg = c;
-      _size = 0;
-
+      
       // Check prerequisites
       if (_cfg.Sources == null || _cfg.Sources.Count == 0)
         throw new Exception("No sources specified!");
@@ -61,57 +78,73 @@ namespace Penumbra
       _extensions.Add(new SubInAclExtension(_cfg));
     }
 
-    public void Run()
+    public void Start()
     {
+      _cancel = false;
+      _progress = 0;
+      _size = 0;
+      _timer.Reset();
       _timer.Start();
-      bool ok = true;
       try
       {
         _shadows = PrepareVolumes();
+        if (_cancel) throw new BackupCanceledException();
 
         Console.WriteLine("Collecting backup entries...");
         GetEntries();
+        if (_cancel) throw new BackupCanceledException();
 
         Console.WriteLine("Creating backup...");
-        ok = CreateBackup();
+        CreateBackup();
+        Finish(true);
       }
       catch (Alphaleonis.Win32.Vss.VssException e)
       {
-        ok = false;
         Console.WriteLine(e.Message);
+        Finish(false);
+      }
+      catch (BackupCanceledException)
+      {
+        Console.WriteLine("Backup cancelled...");
+        Finish(false);
       }
       finally
       {
         if(_shadows != null) foreach (ShadowCopy vss in _shadows.Values)
         {
-          vss.Dispose(ok);
+          vss.Dispose();
         }
       }
-      _timer.Stop();
+    }
 
+    public void Stop()
+    {
+      _cancel = true;
+    }
+
+    void Finish(bool ok)
+    {
+      _timer.Stop();
       if (ok)
       {
-        Console.SetCursorPosition(0, Console.CursorTop);
+        //Console.SetCursorPosition(0, Console.CursorTop);
         Console.WriteLine("Done!");
         Console.WriteLine("Backup file: " + _cfg.Target);
       }
       else
-      {
         Console.WriteLine("Backup failed!");
-        return;
-      }
 
       string elapsed = _timer.Elapsed.ToString();
       elapsed = elapsed.Remove(elapsed.LastIndexOf("."));
       Console.WriteLine("Completed in: " + elapsed);
     }
 
-    protected bool CreateBackup()
+    void CreateBackup()
     {
       if (_entries.Count == 0)
       {
         Console.WriteLine("There is nothing to back up.");
-        return false;
+        return;
       }
       string targetDir = Path.GetDirectoryName(_cfg.Target);
       if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
@@ -119,26 +152,30 @@ namespace Penumbra
       _engine.Init();
       foreach (BackupEntry file in _entries)
       {
+        if (_cancel) throw new BackupCanceledException();
         try
         {
           _engine.Write(file);
+          _progress += file.Info.FileSize / 1024;
           foreach (IBackupExtension e in _extensions) e.OnWrite(file);
         }
         catch (Exception e)
         {
+          // TODO: More specific exception handling
           Console.WriteLine(e.Message);
         }
       }
       foreach (IBackupExtension e in _extensions)
       {
+        if (_cancel) throw new BackupCanceledException();
         MetadataEntry meta = e.GetMetadata();
         if (meta != null) _engine.Write(meta);
       }
-      return _engine.Post();
+      _engine.Post();
     }
 
     // Replaces template tags in target
-    protected string ParseTarget(string target)
+    string ParseTarget(string target)
     {
       if (target == null)
         return null;
@@ -150,7 +187,7 @@ namespace Penumbra
     }
 
     // Prepare volume snapshots
-    protected Dictionary<string, ShadowCopy> PrepareVolumes()
+    Dictionary<string, ShadowCopy> PrepareVolumes()
     {
       HashSet<string> vols = new HashSet<string>();
       foreach (string p in _cfg.Sources)
@@ -188,7 +225,7 @@ namespace Penumbra
     }
 
     // Lists all backup entries and applies filters
-    protected void GetEntries()
+    void GetEntries()
     {
       _entries = new List<BackupEntry>();
       Queue<string> dirQ = new Queue<string>();
@@ -206,8 +243,9 @@ namespace Penumbra
           dirQ.Enqueue(snapSource);
           while (dirQ.Count > 0)
           {
+            if (_cancel) throw new BackupCanceledException();
+
             string path = dirQ.Dequeue();
-            
             try
             {
               // Subfolders
@@ -230,18 +268,19 @@ namespace Penumbra
                 foreach (string f in files)
                 {
                   BackupEntry entry = new BackupEntry(f, vss);
-                  if (_filter.IsFileExcluded(entry))
+                  if (!entry.CanRead || _filter.IsFileExcluded(entry))
                   {
                     entry.Dispose();
                     continue;
                   }
                   _entries.Add(entry);
-                  _size += entry.Info.FileSize;
+                  _size += entry.Info.FileSize / 1024;
                 }
               files = null;
             }
             catch (Exception e)
             {
+              // TODO: More specific exception
               Console.WriteLine(e);
               Console.WriteLine(vss.GetRealPath(path) + " is not accessible.");
             }
